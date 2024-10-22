@@ -1,0 +1,1269 @@
+---
+title: "IoT or Traditional agriculture: does it really matter?"
+author: |
+  | SMDS-2023-2024
+  |
+  | Sofia Noemi Crobeddu (mtr. 2130389)
+date:  |
+  | \textsc{\textbf{\Large Statstical Methods in Data Science II a.y. 2023-2024}}
+  | 
+  | M.Sc. in Data Science
+output:
+  html_document:
+    keep_md: yes
+    theme: united
+  pdf_document:
+    keep_tex: yes
+    toc: no
+bibliography: references.bib
+header-includes: 
+- \usepackage{transparent}
+- \usepackage[utf8]{inputenx}
+- \usepackage{iwona}
+- \usepackage{tikz}
+- \usepackage{dcolumn}
+- \usepackage{color}
+- \usepackage{listings}
+- \usepackage{hyperref}
+- \usepackage{setspace}
+- \usepackage{enumitem}
+- \usepackage{tocloft}
+- \usepackage{eso-pic}
+- \usepackage{amsmath}
+- \usepackage{placeins}
+- \geometry{verbose,tmargin=3.5cm,bmargin=3.5cm,lmargin=2.5cm,rmargin=2.5cm}
+---
+
+```{r setup, include=FALSE,  cache = TRUE, cache.path = "cache/"}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+# the default output hook
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  if (!is.null(n <- options$out.lines)) {
+    x = unlist(stringr::str_split(x, '\n'))
+    if (length(x) > n) {
+      # truncate the output
+      x = c(head(x, n), '....\n')
+    }
+    x = paste(x, collapse = '\n') # paste first n lines together
+  }
+  hook_output(x, options)
+})
+```
+
+```{r setup2, include=FALSE, warning=FALSE}
+
+options(width=60)
+knitr::opts_chunk$set(out.lines = 23, comment = "", warning = FALSE, message = FALSE, echo = TRUE, tidy = TRUE, size="small",tidy.opts=list(width.cutoff=50), fig.align = 'center', fig.width = 5, fig.height = 4)
+```
+
+# 1. Introduction and context
+
+In the last years, the application of advanced technologies in agriculture has seen a rapid growth, driven by the need to enhance the productivity and the sustainability in farming practices. The integration of the Internet of Things (IoT) devices in agriculture (i.e. sensors and network devices) is groundbreaking, providing farmers with real-time data on various environmental and crop-related factors. This data-driven approach facilitates more informed decision-making and optimization of agricultural processes.
+
+This project is based on the "Advanced IoT Agriculture 2024" dataset developed from a real IoT system deployed in agricultural environments. This system allows real-time monitoring of environmental conditions within a smart greenhouse, modifying the productivity of traditional settings. The observations of the dataset describe the growth of different varieties of plants within the two types of environment.
+The following study analyses the effectiveness of IoT environment compared to traditional one, through the application of Bayesian models (using MCMC simulation).
+
+## 1.1. Illustration of the dataset
+
+The dataset mentioned before was taken from the Kaggle official website
+([@Abdullah2024]). It is composed by 30000 observations and 14
+variables. Data were collected by the student Mohammed Ismail Lifta of
+Tikrit University (Iraq), in his MSc research thesis during the academic
+year 2023-2024, with the collaboration of the Agricultural Laboratory
+and the supervision of Professor (Assistant) Wisam Dawood Abdullah,
+administrator of Cisco Networking Academy.
+
+Data describe the cultivation of three radish varieties, Dutch, Syrian,
+and Italian, in the two greenhouse (Smart and Traditional), outlined in
+the introductory paragraph. They were registered in two slots between
+November and December 2023 ([@lafta2024data]).
+
+The variables are the following ones: \newline
+- **Random**: categorical identifier for each record, with modalities R1, R2 and R3 representing different random sample.\newline
+- **Average Chlorophyll in Plant (ACHP)**: average value of chlorophyll content in plants. It is an important indicator of photosynthetic capacity and describes the plant's health and the efficiency in converting light energy into chemical energy.\newline
+- **Plant Height Growth Rate (PHR)**: a measure of the plant's vertical growth rate over time. It is an important indicator to comprehend the height development.\newline
+- **Average wet weight of vegetative growth (AWWGV)**: average wet weight of the vegetative parts of the plant. It is useful for assessing the water content and overall biomass of vegetative growth.\newline
+- **Average plant leaf area (ALAP)**: Measure of the average leaf area, important for estimating the area available for photosynthesis.\newline
+- **Average number of leaves per plant (ANPL)**: average number of leaves per plant, which can influence the photosynthetic capacity and general health of the plant.\newline
+- **Average root diameter (ARD)**: average root diameter. It is an indicator of the plant's ability to absorb water and nutrients from the soil.\newline
+- **Average dry weight of roots (ADWR)**: average dry weight of the roots, indicative of root biomass after removing water content. It is useful for assessing structural and storage capacity.\newline
+- **Percentage of dry matter in vegetative growth (PDMVG)**: percentage of dry matter present in the vegetative parts of the plant, reflecting the proportion of biomass that is not composed of water, that is essential for analyzing the structure and nutritional status of the plant.\newline
+- **Average root length (ARL)**: average root length, which can influence the plant's ability to explore the soil and absorb nutrients and water.\newline
+- **Average wet weight of roots (AWWR)**: average wet weight of the roots, including water content, an indicator of the overall biomass and water retention capacity of roots.\newline
+- **Average dry weight of vegetative plants (ADWV)**: average dry weight of the vegetative parts of the plant. It represents the structural biomass of the plant excluding water content.\newline
+- **Percentage of dry matter in root growth (PDMRG)**: percentage of dry matter in plant's roots. It is important to assess root health and functionality.\newline
+- **Class**: categorical variable indicating the class to which each plant record belongs. There are 6 classes in total (SA, SB, SC, TA, TB, TC), and specifically they represents the three varieties of plants observed (A, B, C), in each type of greenhouse (Smart and Traditional).
+
+## 1.2. Preliminary aspects
+
+Before starting the exploratory data analysis, it is important to
+specify that for this project the variable Random is not taken into
+account since it is an identifier variable.
+
+Moreover, for simplicity of investigations, for this work we consider
+only the first two varieties A (Dutch) and B (Syrian) of the plants.
+This decision was based, first of all, on the results reached by Mohamed
+Ismail Lafta and Wisam Dawood Abdullah who found strong differences
+between these two varieties in particular ([@lafta2024data]),
+hence this comparison could be more interesting. Then the choice was
+also driven by the fact that the variable Class exposes 5000
+observations in each of the 6 categories, and then, in the target
+variable, there is not a variety "more important" than another one.
+
+## 1.3. Exploratory data analysis
+
+Let's start the analysis. First, we take a look at the general data
+before any change:
+```{r read data, echo=FALSE}
+library(nnet)
+library(car)
+library(caret)
+library(R2jags)
+library(corrplot)
+library(LaplacesDemon)
+library(bayesplot)
+
+data <- read.csv("C:\\Users\\sofyc\\OneDrive\\Desktop\\SAPIENZA\\SDS II\\project\\Advanced_IoT_Dataset.csv\\Advanced_IoT_Dataset.csv")
+
+#Renaming the variables
+colnames(data) <- c("Random", 
+                    "Average of chlorophyll in the plant (ACHP)",
+                    "Plant height  rate (PHR)",
+                    "Average wet weight of the growth vegetative (AWWGV)",
+                    "Average leaf area of the plant (ALAP)",
+                    "Average number of plant leaves (ANPL)",
+                    "Average root diameter (ARD)",
+                    "Average dry weight of the root (ADWR)",
+                    "Percentage of dry matter for vegetative growth (PDMVG)",
+                    "Average root length (ARL)",
+                    "Average wet weight of the root (AWWR)",
+                    "Average dry weight of vegetative plants (ADWV)",
+                    "Percentage of dry matter for root growth (PDMRG)",
+                    "Class")
+```
+```{r show data, echo=FALSE}
+str(data) #30000x14
+```
+
+After this, we need to check if there are NA values:
+```{r NA values, echo=FALSE}
+sum(is.na(data))
+```
+
+As it is shown, there are not NA values in the dataset. \newline
+Going on, we can now remove the variable Random and reduce the dataset with plants of variety A and B:
+```{r data reduction, echo=FALSE}
+data <- subset(data, Class %in% c("SA", "SB", "TA", "TB"))
+data <- data[,2:14]
+str(data)
+```
+As expected, the dataset now has 20000 observation. \newline 
+We can now go on with the exploratory data analysis, taking a look at the distributions of the variables, that are our predictors in the models we will apply after. \newline 
+The histograms of frequency of the predictors are shown in Figure 1.
+
+```{r predictors distributions, echo=FALSE, fig.width = 8, fig.height = 8, fig.cap="Distributions of predictors."}
+#Selecting the variables
+predictors <- data[, c(1:12)]
+
+#Plots
+par(mfrow = c(4, 3))
+for (i in 1:ncol(predictors)) {
+  hist(predictors[, i], main = colnames(predictors)[i], cex.main=0.8, 
+       xlab = "Value", col = "lightgreen", border = "black")
+}
+par(mfrow = c(1, 1))
+```
+
+As we can see from the graphs, the 12 predictors do not seem to follow a
+Normal distribution. The majority of the variables seem to have skewness
+and multimodality. In particular, AWWGV, ADWR, AWWR and ADWV seem to be
+skewed. Instead, PHR, ALAP, and ARD presents more than one modality,
+suggesting that maybe there are different groups within the data, and
+this is confirm by the fact that plants can be grouped by the type of
+greenhouse or by the variety. \newline Based on this evaluation, we need
+to transform data properly before applying statistical models.
+
+After this analysis, we can have a look at the correlations between the
+variables, to better understand their relationships. From the
+correlation matrix (Figure 2) we can notice that, in general, we have
+more positive correlations (signed in blue tonalities). \newline In
+particular we can see that there is a very strong positive relation of
+0.95 between Average wet weight of the root (AWWR) and Average root
+diameter (ARD). This suggests that plants with thicker roots also tend
+to have heavier, water-rich roots. It is logical since thicker roots
+typically have more tissue capable of storing water and nutrients,
+contributing to a higher wet weight. \newline Similar it is for the
+relation between Average dry weight of vegetative plants (ADWV) and
+Percentage of dry matter for vegetative growth (PDMVG) that have a
+correlation of 0.91. This makes sense since higher dry matter content
+means more structural biomass, leading to increased dry weight. Finally
+also a moderate, but still high, correlation of 0.81 between Average dry
+weight of the root (ADWR) and Average number of plant leaves (ANPL).
+Regarding the negative ones, we can say that there are less and weaker negative correlations (signed in red) for the majority, and from the graph we can notice that the variable Average of chlorophyll in the plant (ACHP) is the one that exposes this aspect the most. In particular, there is an high negative correlation of -0.75 between this variable and Average root length (ARL). These aspects regarding the variable ACHP suggests that plants probably tend to optimize for photosynthesis over root and leaf development. \newline 
+All the values of the correlation matrix are shown in the Appendix.
+
+```{r corrplot, echo=FALSE, fig.width = 9, fig.height = 9, fig.cap="Corrplot."}
+#Correlation matrix
+cor.matrix <- cor(predictors, use = "complete.obs")
+#Plot
+corrplot(cor.matrix, method = "circle", tl.cex = 0.7)
+```
+
+Moreover, we have a look also at the variances of the predictors.
+```{r predictors variances, echo=FALSE}
+#Variances
+var.pred <- round(apply(predictors, 2, var), 3)
+kable(var.pred, col.names = c("Variable", "Variance"), caption = "Variances of Predictors.")
+```
+From the results shown in Table 1, we can see that the variable with the
+highest spread is Average leaf area of the plant (ALAP), instead the
+lowest one belongs to the variable Average dry weight of vegetative
+plants (ADWV). The extremely high variance of the predictor ALAP, highlights a wide range in leaf area among all the plants, suggesting
+significant variability in the plants' capacity for photosynthesis. This
+reflects also the slight variance of Average of chlorophyll in the plant
+(ACHP) that evokes the different efficiency at photosynthesis between
+plants. Probably these are consequences of the variety and the
+environment of each radish. In general variables with high variance are
+likely to play a significant role in distinguishing the classes, while
+predictors with low variance (in particular close to 0), influence less
+and suggest a relatively uniformity across plants for those specific
+aspects.
+
+Before applying a statistical model, we need to operate the standardization to the data, to ensure that all variables contribute
+equally to the analysis. The standardized distributions are shown in
+Figure 3, and intuitively we can see that the standardization did not
+change the shapes of the distributions a lot.
+
+```{r predictors standardization, echo=FALSE, fig.width = 8, fig.height = 8, fig.cap="Distributions of standardized predictors."}
+preProcValues <- preProcess(predictors, method = c("center", "scale"))
+transformed_standardized_predictors <- predict(preProcValues, predictors)
+par(mfrow = c(3, 4))
+for (i in 1:ncol(transformed_standardized_predictors)) {
+  hist(transformed_standardized_predictors[, i], 
+       main = colnames(transformed_standardized_predictors)[i], 
+       xlab = "Value", 
+       col = "chartreuse3", border = "black", cex.main=0.8)
+}
+par(mfrow = c(1, 1))
+```
+
+As the last step of the Exploratory data analysis, we need to take a look to the distribution of the variable Class that is the target variable in our models. The graph obtained is shown in Figure 4 and as it is evident, the categories are totally balanced: there are exactly 5000 observations for each of the 4 classes. This aspect is quite important for the selection of a sample to apply the models, and this will be done in the next sections.
+
+```{r Class distribution, echo=FALSE, fig.width = 4, fig.height = 4, fig.cap="Distribution of the variable Class."}
+plot(as.factor(data$Class), main= "", col="coral1", 
+     border = "black")
+```
+
+# 2. Data adjustment and sample selection
+
+## 2.1 . Preparation of data on the target variable
+
+Before applying any model, the variable Class is transformed in factors.
+Moreover they are also created two new variables named Env and Variety.
+The first one is used to divide the plants in two groups based on the
+greenhouse: Smart (S) codified in 1 and Traditional (T) in 2. This
+variable will be useful for the application of the second Bayesian model
+in the next sections. The second variable instead, represents the
+varieties of the plants codified in 1 for A variety and 2 for B.
+Furthermore, not to lose the original category assigned, a new column
+called Class.chr where to save the class before the factorization, is
+added. The final dataset is shown below.
+
+```{r class adjustments, echo=FALSE}
+#Transforming the classes in numbers
+data$Class.chr <- data$Class
+data$Class <- as.numeric(as.factor(data$Class))
+
+#Dividing in S=1 (Smart greenhouse) and T=2 (Traditional greenhouse) environments
+data$Env <- ifelse(data$Class.chr %in% c("SA", "SB"), 1, 2)
+
+#Putting 1 for variety A and 2 for B
+data$Variety <- ifelse(data$Class.chr %in% c("SA", "TA"), 1, 2)
+
+str(data)
+```
+## 2.2. Multicollinearity analysis
+
+In section 1.3. we discussed about the correlation matrix and we saw
+that there was a majority of positive correlations between variables
+which, in some cases, were also quite strong. This could cause
+multicollinearity and for this reason we need to verify it. To do this,
+we can use a quantitative method: the Variance Inflation Factor (VIF).
+It measures how much variance of a predictor is explained by the other
+ones of the model. If the VIF is high, usually more than 10, this means
+that the specific variable interested is largely collinear with the
+others, and this can cause problems in the model.
+
+As shown in Table 2, the VIF is really high for many predictors. The
+common technique in this situation is to remove variables that cause
+collinearity and that usually have high values of VIF. In this specific
+case, after the elimination of the four variables Average wet weight of
+the growth vegetative (AWWGV), Average root diameter (ARD), Average dry
+weight of the root (ADWR) and Average dry weight of vegetative plants
+(ADWV), we reach acceptable levels of VIF, as shown in Table 3. It is
+interesting to notice that the waviable Average wet weight of the root
+(AWWR) that had the highest initial value of VIF, has now a very low
+value of 4.68, since the variables with high correlation with it were
+removed.
+
+```{r VIF, echo=FALSE}
+#Table with VIF
+kable(vif(lm(data$Class ~ ., data = data[, c(1:12)])), 
+      col.names = c("Variable", "VIF"), 
+      caption = "Variance Inflation Factor.")
+#Table with VIF after elimination
+kable(vif(lm(data$Class ~ ., data = data[, c(1,2,4,5,8:10,12)])), 
+      col.names = c("Variable", "VIF"), 
+      caption = "Variance Inflation Factor after elimination of three variables.")
+```
+## 2.3. Selection of a sample from data
+
+Applying Bayesian models to the entire dataset of 20000 observations can
+be computationally intensive and time expensive. For this reason, it is
+necessary to reduce the sample size to a manageable one. As specified in
+section 1.3., our target variable Class has 5000 observation for every
+category. To ensure the representativeness of the data, a suitable
+proposal is to take 150 observations for each class (600 observations in
+total). For this specific case, to avoid class imbalance and to reflect
+the original dataset, **stratified sampling** seems to be an
+appropriate technique, since it allows to maintain the proportionality
+of each class within the sample. To operate this sampling method, it was
+used the function *createDataPartition* from the library
+*caret*, to obtain an index to extract the sample from the initial
+dataset. It is important to specify that, as explained in the mentioned
+section, we need to use standardize predictors before applying models,
+even if we use a restricted sample.
+
+```{r stratified sampling, echo=TRUE}
+#Selection of a sample through stratification
+size <- 150 #Sample size for each class
+#Index of stratification based on variable Class
+idx <- createDataPartition(data$Class, p = size/5000,
+                           #p = size/5000 specifies the ratio of
+                           #observations to select from the total of
+                           #each class (i.e. 3%)
+                           list = FALSE, times = 1)
+#Stratified sample
+data.sampled <- data[idx, ]
+
+#Check of sizes
+check <- table(data.sampled$Class) #check of 150 for each one
+str(data.sampled) #600x16
+
+#Standardization of data sampled
+sampled_standardized_predictors <- predict(preProcValues, data.sampled[, c(1:12)])
+```
+
+# 3. First Bayesian model: Multinomial logistic regression model
+
+## 3.1. Formulation of the model
+Having a problem of multiclass classification, the first and immediate
+model to apply is the Multinomial logistic regression one. This model is
+a natural extension of the Binomial logistic regression model and it is
+used when the target variable has more than 2 categories, which don't
+have a specific order. It can be applied if there is no multicollinearity between independent variables and the classes of the
+response variable are mutually exclusive and exhaustive.\newline 
+The target variable $Y_i=(Y_{i1},...,Y_{iK})$ with $Y_{ik}$ representing
+the frequency of the $k^{th}$ level, is assumed to have $K$ levels.
+The model can be expressed in the following way: 
+\[
+Y_i \sim multinomial(\pi_i, N_i)
+\]
+and
+\[
+\log ( \frac{\pi_{ik}}{\pi_{i1}}) = \eta_{ik} = \beta_{0k} + \sum^{k}_{i=1} \beta_{jk} x_{ij}, \quad (3.1)
+\]
+for $k=2,...,K$, where $pi_i = (\pi_{i1},\pi_{i2},...,\pi_{iK})^T$
+is the vector of the probabilities for every level of the variable $Y$
+for individual $i$ (the probability that the plant $i$ belongs to
+category $k$), with $\pi_{i1} = 1-\sum^K_{k=2} \pi_{ik}$.
+
+In terms of response probabilities, solving the (3.1), we have that: 
+\[
+\pi_{i1} = \frac{1}{1+\sum^K_{k=2} e^{\eta_{ik}}}
+\] 
+and also 
+\[
+\pi_{ik} = \frac{e^{\eta_{ik}}}{1+\sum^K_{k=2} e^{\eta_{ik}}}
+\] 
+for $k=2,...,K.$ The resulting summarizing term is: 
+\[
+\pi_{ik} = \frac{e^{\eta_{ik}}}{\sum^K_{k=1} e^{\eta_{ik}}}
+\] 
+with $\eta_{i1}=0$ for $i=1,2,...,n.$
+
+## 3.2. Application of the model
+
+In our case, since we removed four variables cause of multicollinearity,
+we can apply the **Multinomial logistic regression model**. This
+model can be implemented in JAGS in the following way:
+
+```{r First model, echo=FALSE}
+cat("
+\\begin{verbatim}
+model {
+  #Likelihood
+  for (i in 1:N) {
+    y[i] ~ dcat(pi[i, 1:K])
+    
+    for (k in 1:K) {
+      eta[i, k] <- beta0[k] +
+                   beta[1, k] * ACHP[i] +
+                   beta[2, k] * PHR[i] +
+                   beta[3, k] * ALAP[i] +
+                   beta[4, k] * ANPL[i] +
+                   beta[5, k] * PDMVG[i] +
+                   beta[6, k] * ARL[i] +
+                   beta[7, k] * AWWR[i] +
+                   beta[8, k] * PDMRG[i]
+      
+      expeta[i, k] <- exp(eta[i, k])
+    }
+    
+    for (k in 1:K) {
+      pi[i, k] <- expeta[i, k] / sum(expeta[i, ])
+    }
+  }
+
+  #Priors
+  for (k in 1:K){
+    beta0[k] ~ dnorm(0, 0.1)
+
+    #Predictors
+    for (j in 1:8){ 
+      beta[j, k] ~ dnorm(0, 0.1)
+    }
+  }
+}
+\\end{verbatim} 
+")
+```
+
+and the commands in R are the following:
+
+```{r Multinomial logistic regression model, echo=TRUE}
+#First Bayesian model: Multinomial logistic model
+y <- as.numeric(data.sampled$Class)
+K <- length(unique(y)) #4, number of classes
+
+#MCMC 
+S <- 10000
+burn_in <- 2000
+
+data.prepared <- list(
+  y=y,
+  ACHP = sampled_standardized_predictors$`Average of chlorophyll in the plant (ACHP)`,
+  PHR = sampled_standardized_predictors$`Plant height  rate (PHR)`, 
+  ALAP = sampled_standardized_predictors$`Average leaf area of the plant (ALAP)`, 
+  ANPL = sampled_standardized_predictors$`Average number of plant leaves (ANPL)`,
+  PDMVG = sampled_standardized_predictors$`Percentage of dry matter for vegetative growth (PDMVG)`,
+  ARL = sampled_standardized_predictors$`Average root length (ARL)`, 
+  AWWR = sampled_standardized_predictors$`Average wet weight of the root (AWWR)`, 
+  PDMRG = sampled_standardized_predictors$`Percentage of dry matter for root growth (PDMRG)`,
+  N = nrow(sampled_standardized_predictors),
+  K = K
+)
+
+params <- c('beta0', 'beta')
+
+inits <- list(
+  inits1=list('beta0' = rep(0, K), 'beta' = matrix(0, 8, K)),
+  inits2=list('beta0' = rep(1, K), 'beta' = matrix(1, 8, K)),
+  inits3=list('beta0' = rep(-0.5, K), 'beta' = matrix(-0.5, 8, K))
+)
+
+start.time1 <- Sys.time()
+
+jags.1 <- jags(data=data.prepared,
+               inits=inits,
+               parameters.to.save=params,
+               model.file="C:\\Users\\sofyc\\OneDrive\\Desktop\\SAPIENZA\\SDS II\\project\\mod_agr.txt",
+               n.chains=3,
+               n.iter=S,
+               n.burnin=burn_in)
+
+end.time1 <- Sys.time()
+```
+
+## 3.3. Convergence diagnostics and inferential findings
+
+The time execution for this model is:
+```{r execution time first model, echo=FALSE}
+(execution1 <- end.time1 - start.time1)
+```
+
+The first technique we use for diagnostic is represented by traceplots. They show the tendency of the samples for each parameter. In our case we have 36 traceplots since the model has 4 intercepts beta0 and 8 parameters beta for each of the 4 categories. Traceplots are displayed in Figure 5 and they show a good mix of the three chains of the model, exploring the entire parameter space. In these plots the firt chain is colored in red, the second in green and the third one in light blue.
+
+```{r traceplots First model, echo=TRUE, fig.show='hold', fig.width = 3, fig.height = 3, fig.cap="Traceplots, First model."}
+#Summary trace plots parameters (beta for each class and beta0 for each class) - of type beta[i, class] and beta0[class]
+traceplot(jags.1, varname = c("beta"), ask = FALSE,
+          col = c(2, 3, 4), match.head = FALSE)
+#COLORS: 2=red, 3=green, 4=light blue
+```
+
+Another important instrument to control the convergence diagnostic of a Bayesian model, is represented also by **autocorrelation plots**. They are used to visualize the level of correlation between samples of the MCMC chains, i.e. they evaluate the dependence of a sample in a specific point of a chain with the previous and the following ones. This measure is made through *lags* that are like *delays*. Hence, for example, the lag 1 measures the correlation between a sample and the successive one, lag 2 compares every sample with the sample at distance 2, etc. This process implies that, if the autocorrelation is high, it means that samples are really dependent between each others. An autocorrelation at lag $t$ is indicated by $\rho_t$ and varies between 1 and -1. Another specification is that $\rho_0$ is always 1 since every sample is perfectly correlated with itself. \newline 
+A good model should have chains that mixed well such that the autocorrelation should go forward 0 quickly. \newline 
+Figures 6, 7, 8, 9 and 10 shown the autocorrelation plots for each parameter of the model: the 6, 7, 8 and 9 are about beta parameters for each class respectively, instead the last group of graphs regards the intercept beta0 for each class. As we can see, the autocorrelations are inside the confidence bands, beside some slightly exception for a sample like in beta[4,3] (fourth beta for class 3) or in beta0[1]. These confidence bands are calculated also considering the number of samples $n.$ In our case we have 10000 iterations, 2000 burn_in and there is no thinning such that every sample of a chain is maintained. Then we have 8000 samples for each chain. \newline 
+Eventually, to plot the autocorrelations just for the first chain, we use this structure:
+```{r structure acf plot, echo=FALSE}
+cat("
+  acf(jags.1$BUGSoutput$sims.array[,1,parameter])
+")
+```
+
+```{r diagnostic B1 First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - First class SA, First model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.1$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 1, "]")],
+      main=paste0("beta[", i, ",", 1, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B2 First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - Second class SB, First model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.1$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 2, "]")],
+      main=paste0("beta[", i, ",", 2, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B3 First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - Third class TA, First model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.1$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 3, "]")],
+      main=paste0("beta[", i, ",", 3, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B4 First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - Fourth class TB, First model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.1$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 4, "]")],
+      main=paste0("beta[", i, ",", 4, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B5 First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots intercept, First model."}
+#Summary plot acf
+par(mfrow = c(2, 2))
+for (i in 1:4){
+  acf(jags.1$BUGSoutput$sims.matrix[,paste0("beta0[", i, "]")],
+      main=paste0("beta0[", i, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+Now we can look at the estimates of the parameters of the first model,
+and analyze its inference. The summaries of the First model are shown in
+Table 4 and 5. In Table 4 there are the summaries for the parameters
+*beta0* (for every class), and in Table 5 there are the summaries
+for the eight parameters *beta* (each for every class). \newline
+The columns 2.5% and 97.5% represent the limits of the confidence interval at level $\alpha=0.05.$ These intervals show an high level of variability, for example for beta[8,2]. Also, some of them as for example beta[5,1], beta[7,3], beta[8,4], have a mean very close to 0, so for these parameters it is not possible to exclude the null effect. \newline
+From the results of Table 5 of beta, we can also observe that plants with high value of Average of chlorophyll in the plant (ACHP), with parameter beta[1,k], are likely to belong to classes 3 (TA) and 4 (TB), i.e. to the Traditional greenhouse. 
+Instead, plants with high Average root length (ARL), i.e. beta[6,k], and Average wet weight of the root (AWWR), i.e. beta[7,k], are likely to belong to the first two classes (Smart greenhouse). \newline
+Regarding some possible interpretations for differences in varieties, we can see that plants of Syrian variety (B) probably have higher values of Plant height rate (PHR), i.e. beta[2,k], and Average leaf area of the plant (ALAP), i.e. beta[3,k], but also a likely lower value of Percentage of dry matter for root growth (PDMRG), i.e. beta[8,k], compared to the Dutch variety (A).\newline
+From the results of Table 4 of beta0, we can see that the intercept for class 2 and 4 is really close to 0, and in general for each class beta0 has a high variability. Practically, since also the other intercept have an estimated mean of less than 1, this means that when all the predictors are 0, there is not so much difference between classes.
+
+```{r Inference First model, echo=TRUE, results='asis'}
+#Extracting estimates and quantiles of beta0 and beta
+summary.jags1.beta0 <- as.data.frame(jags.1$BUGSoutput$summary[
+    grep("beta0", rownames(jags.1$BUGSoutput$summary)), 
+    ][, c(1:3, 5, 7:9)])
+summary.jags1.beta0 <- round(summary.jags1.beta0, 2)
+#Table 4 beta0
+kable(summary.jags1.beta0, 
+      caption = "First Bayesian model analysis and inference of beta0.",
+      align = "c")
+
+#Extracting estimates and quantiles of beta
+summary.jags1.beta <- as.data.frame(jags.1$BUGSoutput$summary[
+    grep("^beta\\[", rownames(jags.1$BUGSoutput$summary)), 
+    ][, c(1:3, 5, 7:9)])
+summary.jags1.beta <- round(summary.jags1.beta, 2)
+#Table 5 beta
+kable(summary.jags1.beta, 
+      caption = "First Bayesian model analysis and inference of beta.", 
+      align = "c")
+```
+
+As we can see from the tables, the sixth column is called **Rhat**.
+Introduced by Gelman and Rubin, it is also called $\hat R$ and it is
+another convergence diagnostic to evaluate if the chains converged to
+the stationary distribution. \newline 
+Practically, it compares the variance *between* $M$ simulated chains defined by 
+\[
+B_T = \frac{1}{M} \sum_{m=1}^M ( \hat I^{(m)} - \hat I_T)^2
+\] 
+where $T$ is the number of iterations, with the variance *within* each chain defined by 
+\[
+W_T = \frac{1}{M} \sum_{m=1}^M [\frac{1}{T} \sum_{t=1}^T ( h(\theta_i^{(m)}) - \hat I_T^{(m)})^2].
+\] 
+The formula of the exact Rhat is the following: 
+\[
+R_T = \frac{ \frac{T-1}{T} W_T + \frac{M+1}{M} B_T }{W_T}.
+\] 
+When $T \rightarrow \infty$, $R_T$ is expected to decrease to 1.
+Hence the formula in this case is: 
+\[
+\hat R = \sqrt \frac{\hat W}{\hat B}
+\] 
+where $\hat W$ is the estimate of the variance within chains, and
+$\hat B$ is the estimate of the variance between chains. \newline 
+As we can see from the Tables 4 and 5, we have values of Rhat that suggest that the chains are well mixed (all are 1).
+
+The last column is instead **n.eff**. This column represents the
+**Effective Sample Size (ESS)**, another method for the diagnostic
+of a Bayesian model. It is a measure that evaluates the quality of the
+samples generated by MCMC sampling and it gives the number of
+independent and identically distributed samples produced, despite they
+are correlated due to temporal dependency. \newline 
+It can be expressed by 
+\[
+ESS = \frac{N}{1+2 \sum_{k=1}^\infty \rho_k}
+\] 
+where $N$ is the number of total samples and $\rho_k$ is the
+autocorrelation at lag $k$. \newline 
+The more the autocorrelation between samples, the lower ESS will be compared to the real dimension of the samples $N$. 
+
+From Tables 4 and 5 we can see that the majority of the parameters have a ESS around 3000, that is elevate. This suggests that the MCMC explored well the parameter space, besides beta[6,4] that with a $n.eff$ of 8400 could indicate autocorrelation, but still acceptable (since it is close to 1000).
+
+Now, let's look at the parameter's distribution. We can extract the information in this way:
+```{r coeff beta First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="Posterior Distributions of beta, First model."}
+#beta - Fig.11
+mcmc.jags1 <- as.mcmc(jags.1)
+mcmc_areas(mcmc.jags1, pars = c("beta[1,1]", "beta[1,2]", "beta[1,3]",
+                                "beta[1,4]", "beta[2,1]", "beta[2,2]",
+                                "beta[2,3]", "beta[2,4]", "beta[3,1]", 
+                                "beta[3,2]", "beta[3,3]", "beta[3,4]",
+                                "beta[4,1]", "beta[4,2]", "beta[4,3]",
+                                "beta[4,4]"))
+```
+
+```{r coeff beta0 First model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="Posterior Distributions of beta0, First model."}
+#beta0 - Fig. 12
+mcmc_areas(mcmc.jags1, pars = c("beta0[1]", "beta0[2]", "beta0[3]", "beta0[4]"))
+```
+
+As we can see the distributions seem symmetric and this is a good sign of convergence, even if the distributions have high variability. Moreover, the parameters beta[4,2] has a mean very close to zero, suggesting that it can be not significant. Same situation for the intercepts beta0[2] and beta0[4], as we have already noticed also by Tables 4 and 5 of parameters' estimates.
+
+Continuing with the diagnostic, another important measure to look at is
+the **Monte Carlo Standard Error (MCSE)** that quantifies the
+uncertainty of the estimate of Monte Carlo simulation. It is the
+residual variability of the estimate due to the sampling, taking into
+account the autocorrelation. Basically, it measures how much an estimate
+obtained from MCMC simulation could vary from a simulation to another
+and, in this sense, it is an indicator of precision of the estimate of a
+quantity or the parameter of interest. \newline 
+If there was not autocorrelation between samples, MCSE would be equal to the Standard Error 
+\[
+SE = \frac{\sigma}{\sqrt N}
+\] 
+where $\sigma$ is the sampling standard deviation, and $N$ is the
+dimension of the sample. Due to autocorrelation, we have a reduction in
+the *Effective number of samples* as explained before, then the
+MCSE is defined as: 
+\[
+MCSE = \frac{\hat \sigma}{\sqrt ESS}.
+\] 
+We interpret a low MCSE as a more precise estimate for that
+parameter. Also, if ESS is too low, MCSE will be higher meaning that the
+estimates of the model are not accurate. This could suggest that the
+chain does not converge.
+
+From the results shown below, we can see that for the intercept beta0 we have a standard error between 0.09 and 0.13, so this suggests a good precision in the estimates. Similar situation for beta parameters, in fact the s.e. varies between 0.08 and 0.13.
+
+```{r MCSE First model, echo=TRUE}
+mcse.jags1 <- list()
+# MCSE for beta0
+mcse.jags1$beta0 <- lapply(1:3, function(mc) {
+  sapply(1:4, function(class) {
+    #Extract samples of beta0 for the chain mc and the category class
+    param.name <- paste0("beta0[", class, "]")
+    MCSE(jags.1$BUGSoutput$sims.array[, mc, param.name])
+  })
+})
+
+#MCSE for beta (8 parameters for 4 classes)
+mcse.jags1$beta <- lapply(1:3, function(mc) {
+  sapply(1:4, function(class) {
+    sapply(1:8, function(coef) {
+      #Extract samples of beta for the chain mc and the category class
+      param.name <- paste0("beta[", coef, ",", class, "]")
+      MCSE(jags.1$BUGSoutput$sims.array[, mc, param.name])
+    })
+  })
+})
+
+#Results in 3 matrices (one per mc)
+mcse.jags1$beta <- lapply(mcse.jags1$beta, function(beta.mc) {
+  matrix(beta.mc, nrow = 8, ncol = 4)
+})
+
+#Show results
+mcse.jags1
+```
+**Geweke diagnostic** is instead a convergence diagnostic to
+evaluate if the chains have reached the stationarity. It is based on a
+test for the equality of the means of the first and last part of a
+Markov chain (by default the first 10% and the last 50%), to determine
+if the chain converged. In this sense it evaluates also if the sampling
+is representative, since if the samples are produced by the stationary
+distribution of the chain, the two means are equal. In this case the
+Geweke's statistic has an asymptotically standard normal distribution.
+If the statistic Z is close to 0, the means of the two sections are
+similar and the chain converges. If Z is far away from 0, this suggests that the
+means are different and the chain could not converge. The Geweke test is
+calculated for each parameter. The results ar shown below: 
+```{r Geweke diagnostic First model, echo=TRUE}
+mcmc1.final <- mcmc.list(mcmc.jags1)
+#Geweke diagnostic
+(geweke.diag.jags1 <- geweke.diag(mcmc1.final))
+```
+From these results in general we can see that many parameters have Z-score close to 0, and this suggests that there are not significant differences between sample means in the first and last part of the chain. Just in the second [[2]] chain there are a couple of them with $|Z > 2|$, for example beta[6,4] and beta0[3].
+
+Going on, **Heidelberger-Welch Diagnostic** is a test with H0 which verifies that the sampled values comes from a stationary distributions. It works in this way: first it is applied to the whole chain, then after
+discarding the first 10%, 20%, of the chain until either the null
+hypothesis is accepted, or 50% of the chain has been discarded. If
+there are a lot of "failures" of the test, then a longer MCMC run is
+needed. \newline The other test shown is the **Halfwidth Mean Test** and it is a test to measure the average length of an interval of the parameters, to evaluate the convergence. However, we take in consideration only the Stationarity tests. The results are shown below: 
+```{r Heidelberger-Welch diagnostic First model, echo=TRUE}
+#Heidelberger-Welch diagnostic
+(heidel.diag.jags1 <- heidel.diag(mcmc1.final))
+```
+
+As we can see, almost all passed the stationarity test, beside parameter beta[8,3] in the third chain.
+
+The last diagnostic applied is **Raftery-Lewis** technique, used to calculate the necessary number of sampling MCMC to guarantee reliable estimates, and for the chain to be sufficiently convergent and representative of the posterior distribution. \newline
+The idea is that if, for a specific parameter of interest $q$, we define an acceptable tolerance $r$ and a probability $s$ of being within that tolerance, this diagnostic will calculate the number of iterations $N$ and the number of burn-ins $M$ necessary to satisfy the specified conditions.
+This calculation is made with a 5% percentage of acceptable error, and
+\[
+N \geq \frac{1}{(\hat \sigma^2 - \epsilon^2)} (\frac{1}{\epsilon} (\frac{z_{\alpha/2}}{\sigma}))^2
+\]
+where $\hat \sigma$ is the estimate of the standard deviation of the statistic of interest, $\sigma$ is its exact standard deviation, $\epsilon$ is the acceptable error and $z_{\alpha/2}$ is the quantile of the normal distribution.
+
+The results for the First Bayesian model are shown below and for an accuracy of 0.005 and a percentage of error of 5%, we need at least 3746 iterations for each chain.
+```{r Raftery-Lewis diagnostic First model, echo=TRUE}
+#Raftery-Lewis Diagnostic diagnostic
+(raftery.diag.jags1 <- raftery.diag(mcmc1.final))
+```
+
+# 4. Second Bayesian model: Multilevel model with Hierarchical Random Terms
+
+## 4.1. Formulation of the model
+
+For the second model, we can formulate a two-levels model. The proposed
+one is a **Multilevel model with Hierarchical Random Terms**. It is
+basically a hierarchical multinomial regression model and, as before, it
+predicts a categorical response variable with $K$ categories, while
+also accounting for unobserved variability at different hierarchical
+levels through random effects. These two levels are the environment
+(also called greenhouse) and the varieties. \newline 
+The target variable, as in the previous Bayesian model, is $Y_i=(Y_{i1},...,Y_{iK})$ where $i$ is every plant observed. The
+model, again, can be expressed in the following way: 
+\[
+Y_i \sim multinomial(\pi_i, N_i)
+\] 
+with $\sum_{k=1}^{K} \pi_{ik} = 1$ and $\pi_{ik}$ the probability
+that plant $i$ belongs to category $k$. As in Multinomial logistic
+regression model, it is assumed that the probabilities of belonging to
+each category are determined by a linear combination of independent
+random variables $x_{ip}$ with $p=1,...,P$ and, for this case, also
+random effects at two levels (i.e. for environment and for variety).
+Hence, in this model we have that: 
+\[
+\log ( \frac{\pi_{ik}}{\pi_{i1}}) = \eta_{ik} = \sum_{i=1}^{P} \beta_{pk} x_{ip} + u_{\textit{env}[j], k} + u_{\textit{variety}[j], k}, \quad (4.1)
+\] 
+where: \newline
+- $\sum_{i=1}^{P} \beta_{pk} x_{ip}$ is the effect of the
+predictors weighted by their parameters, 
+- $u_{\textit{env}[j], k}$ is the random effect of the environment $j$ for the class $k$ and it captures the variability between greenhouses, 
+- $u_{\textit{variety}[j], k}$ is the random effect of the variety $j$
+and it captures the variability between plant's varieties.
+
+Through the softmax function we have that: 
+\[
+\pi_{ik} = \frac{\exp(\eta_{ik})}{\sum_{k=1}^{K} \exp(\eta_{ik})}.
+\]
+
+Moreover, the random effect for environment and for variety are assumed
+to follow Normal distributions with mean zero and unknown variances such
+that $u_{\text{env}[j],k} \sim N(0, \tau_{\text{env}})$ and
+$u_{\text{variety}[j],k} \sim N(0, \tau_{\text{variety}}).$
+
+## 4.2. Application of the model
+
+The model explained in section 4.1. can be implemented in JAGS in the following way:
+
+```{r Second model, echo=FALSE}
+cat("
+\\begin{verbatim}
+model {
+  for (i in 1:N) {
+    y[i] ~ dcat(pi[i, 1:K])
+    
+    #Likelihood
+    for (k in 1:K) {
+      eta[i, k] <- beta[1, k] * ACHP[i] +
+                   beta[2, k] * PHR[i] +                   
+                   beta[3, k] * ALAP[i] +
+                   beta[4, k] * ANPL[i] +
+                   beta[5, k] * PDMVG[i] +
+                   beta[6, k] * ARL[i] +
+                   beta[7, k] * AWWR[i] +
+                   beta[8, k] * PDMRG[i] +
+                   u_env[environment[i], k]  #Random effect for environment
+                  + u_variety[variety[i], k]  #Random effect for variety
+      expeta[i, k] <- exp(eta[i, k])
+    }
+    
+    for (k in 1:K) {
+      pi[i, k] <- expeta[i, k] / sum(expeta[i, ])
+    }
+  }
+  
+  #Priors (beta for each predictor p and class k)
+  for (p in 1:8) {  #8 predictors
+    for (k in 1:K) {
+      beta[p, k] ~ dnorm(0, 0.1) 
+    }
+  }
+  
+  #Random effect for environment
+  for (j in 1:2) {  #2 environments: S=1, T=0
+    for (k in 1:K) {
+      u_env[j, k] ~ dnorm(0, tau_env)
+    }
+  }
+  tau_env ~ dgamma(0.1, 0.1)
+  
+  #Random effect for variety
+  for (j in 1:2) {  #2 varieties: A, B
+    for (k in 1:K) {
+      u_variety[j, k] ~ dnorm(0, tau_variety)
+    }
+  }
+  tau_variety ~ dgamma(0.1, 0.1)
+}
+\\end{verbatim}
+")
+```
+
+and the commands in R are the following:
+```{r Multilevel model with Hierarchical Random Terms, echo=TRUE}
+#Second Bayesian model: Multilevel model with Hierarchical Random Terms
+y <- as.numeric(data.sampled$Class)
+K <- length(unique(y)) #4, number of classes
+
+#MCMC 
+S <- 10000
+burn_in <- 2000
+
+data.prepared <- list(
+  y=y,
+  ACHP = sampled_standardized_predictors$`Average of chlorophyll in the plant (ACHP)`,
+  PHR = sampled_standardized_predictors$`Plant height  rate (PHR)`, 
+  ALAP = sampled_standardized_predictors$`Average leaf area of the plant (ALAP)`,
+  ANPL = sampled_standardized_predictors$`Average number of plant leaves (ANPL)`,
+  PDMVG = sampled_standardized_predictors$`Percentage of dry matter for vegetative growth (PDMVG)`,
+  ARL = sampled_standardized_predictors$`Average root length (ARL)`, 
+  AWWR = sampled_standardized_predictors$`Average wet weight of the root (AWWR)`, 
+  PDMRG = sampled_standardized_predictors$`Percentage of dry matter for root growth (PDMRG)`,
+  N = nrow(sampled_standardized_predictors),
+  K = K,
+  environment = as.numeric(data.sampled$Env),
+  variety = as.numeric(data.sampled$Variety)
+)
+
+params <- c('beta', 'u_env', 'u_variety', 'tau_env', 'tau_variety')
+
+inits <- list(
+  inits1=list('beta' = matrix(0, 8, K), 'u_env' = matrix(0, 2, K),
+              'u_variety' = matrix(0, 2, K), 'tau_env' = 1, 'tau_variety' = 1),
+  inits2=list('beta' = matrix(1, 8, K), 'u_env' = matrix(1, 2, K),
+              'u_variety' = matrix(1, 2, K), 'tau_env' = 1, 'tau_variety' = 1),
+  inits3=list('beta' = matrix(-0.5, 8, K), 'u_env' = matrix(-0.5, 2, K),
+              'u_variety' = matrix(-0.5, 2, K), 'tau_env' = 1, 'tau_variety' = 1)
+)
+
+start.time2 <- Sys.time()
+
+jags.2 <- jags(data=data.prepared,
+               inits=inits,
+               parameters.to.save=params,
+               model.file="C:\\Users\\sofyc\\OneDrive\\Desktop\\SAPIENZA\\SDS II\\project\\mod_agr_multilevel_random.txt",
+               n.chains=3,
+               n.iter=S,
+               n.burnin=burn_in)
+
+end.time2 <- Sys.time()
+```
+
+## 4.3. Convergence diagnostics and inferential findings
+
+The time execution of the second Bayesian model is the following:
+```{r execution time second model, echo=FALSE}
+(execution2 <- end.time2 - start.time2)
+```
+Hence, it is higher than the one of the first Bayesian model applied before, but it is necessary to precise that this timing is actually a bit variable, in fact in some cases the second model performs better, while in others is the first one, and the difference is just of 3 or 4 min-sec maximum.
+```{r execution1-execution2, echo=FALSE}
+execution2-execution1
+```
+
+As before, we plot the traceplots and the colors of the chains are still the same: red for the first one, green for the second one and light blue for the third one. As we can see from Figure 13, beta parameters seem to mix very well. Regarding instead the parameters u_env and u_variety, we can see that they mix acceptably in some cases, and in others not so well as for example in u_env[2,1] or u_env[2,3], u_variety[2,2]. As we can see, tau_env seems almost always 0 apart from two groups of iterations. Regarding tau_variety instead, we can see that it captures more variability, compared to tau_env.
+
+```{r traceplots Second model, echo=TRUE, fig.show='hold', fig.width = 3, fig.height = 3, fig.cap="Traceplots, Second model."}
+#Summary trace plots parameters (beta for each class)
+traceplot(jags.2, varname = c("beta"), ask = FALSE,
+          col = c(2, 3, 4), match.head = FALSE)
+#COLORS: 2=red, 3=green, 4=light blue
+```
+
+```{r traceplots u\\_env Second model, echo=TRUE, fig.show='hold', fig.width = 3, fig.height = 3, fig.cap="Traceplots u\\_env, Second model."}
+#Summary trace plots parameters (u_env for each class)
+traceplot(jags.2, varname = c("u_env"), ask = FALSE,
+          col = c(2, 3, 4), match.head = FALSE)
+#COLORS: 2=red, 3=green, 4=light blue
+```
+
+```{r traceplots u\\_variety Second model, echo=TRUE, fig.show='hold', fig.width = 3, fig.height = 3, fig.cap="Traceplots u\\_variety, Second model."}
+#Summary trace plots parameters (u_variety for each class)
+traceplot(jags.2, varname = c("u_variety"), ask = FALSE,
+          col = c(2, 3, 4), match.head = FALSE)
+#COLORS: 2=red, 3=green, 4=light blue
+```
+
+Let's look now at the autocorrelation plots.
+Figures from 16 to 23 show autocorrelation plots for each parameter of the model: the first four groups of graphs represent the acf for beta parameters for each class, instead the last 2 are for u_env and u_variety, for each class. As the first Bayesian model, also here the autocorrelations are inside the confidence bands, beside some very very slightly exception for a sample like in beta[5,1] (fifth beta for class 1) or u_env[1,3].
+
+```{r diagnostic B1 Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - First class SA, Second model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.2$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 1, "]")],
+      main=paste0("beta[", i, ",", 1, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B2 Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - Second class SB, Second model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.2$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 2, "]")],
+      main=paste0("beta[", i, ",", 2, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B3 Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta- Third class TA, Second model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.2$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 3, "]")],
+      main=paste0("beta[", i, ",", 3, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B4 Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots beta - Fourth class TB, Second model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:8){
+  acf(jags.2$BUGSoutput$sims.matrix[,paste0("beta[", i, ",", 4, "]")],
+      main=paste0("beta[", i, ",", 4, "]"))
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B5 Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots u\\_env, Second model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:2){
+  for(k in 1:4){
+   acf(jags.2$BUGSoutput$sims.matrix[,paste0("u_env[", i, ",", k, "]")],
+      main=paste0("u_env[", i, ",", k, "]")) 
+  }
+}
+par(mfrow = c(1, 1))
+```
+
+```{r diagnostic B6 Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="ACF plots u\\_variety, Second model."}
+#Summary plot acf
+par(mfrow = c(3, 3))
+for (i in 1:2){
+  for(k in 1:4){
+   acf(jags.2$BUGSoutput$sims.matrix[,paste0("u_variety[", i, ",", k, "]")],
+      main=paste0("u_variety[", i, ",", k, "]")) 
+  }
+}
+par(mfrow = c(1, 1))
+```
+
+Now we can look at the estimates of the parameters of the first model,
+and analyze its inference. The summaries of the First model are shown in
+Table 6, 7 and 8. In Table 6 there are the summaries for the parameters
+*beta* (for every class), in Table 5 for *u_env* (each for every class) and in Table 8 for *u_variety* (each for every class). \newline
+The intervals for beta show means very close to 0, and in general they have an high level of variability. In this model then, the parameters u_env and u_variety seem to influence the most. Based on the estimates of parameters beta, plants with Average number of plant leaves (ANPL), Percentage of dry matter for vegetative growth (PDMVG), Average root length (ARL) and Average wet weight of the root (AWWR) (respectively beta[4,k], beta[5,k], beta[6,k], beta[7,k]) higher, likely belong to classes 1 or 2 of Smart greenhouse. \newline
+Instead, as in the first model, we can also observe that plants with high value of Average of chlorophyll in the plant (ACHP), with parameter beta[1,k], are likely to belong to classes 3 (TA) and 4 (TB), i.e. to the Traditional greenhouse.
+
+```{r Inference Second model, echo=TRUE, results='asis'}
+#Extracting estimates and quantiles of beta
+summary.jags2.beta <- as.data.frame(jags.2$BUGSoutput$summary[
+    grep("^beta\\[", rownames(jags.2$BUGSoutput$summary)), 
+    ][, c(1:3, 5, 7:9)])
+summary.jags2.beta <- round(summary.jags2.beta, 2)
+#Table beta
+kable(summary.jags2.beta, 
+      caption = "Second Bayesian model analysis and inference of beta.",
+      align = "c")
+
+#Extracting estimates and quantiles of u_env
+summary.jags2.u_env <- as.data.frame(jags.2$BUGSoutput$summary[
+    grep("^u_env\\[", rownames(jags.2$BUGSoutput$summary)), 
+    ][, c(1:3, 5, 7:9)])
+summary.jags2.u_env <- round(summary.jags2.u_env, 2)
+#Table u_env
+kable(summary.jags2.u_env, 
+      caption = "Second Bayesian model analysis and inference of u_env.", align = "c")
+
+#Extracting estimates and quantiles of u_variety
+summary.jags2.u_variety <- as.data.frame(jags.2$BUGSoutput$summary[
+    grep("^u_variety\\[", rownames(jags.2$BUGSoutput$summary)), 
+    ][, c(1:3, 5, 7:9)])
+summary.jags2.u_variety <- round(summary.jags2.u_variety, 2)
+#Table u_variety
+kable(summary.jags2.u_variety, 
+      caption = "Second Bayesian model analysis and inference of u_variety.", align = "c")
+```
+Regarding the Rhat we can see we have good results for beta and u_env, in fact they are all around 1 and less than 1.1. For u_variety instead we have values also that reach the 1.12 and this suggests some problems of convergence for this parameter. \newline 
+For the ESS represented by the column n.eff we have good values for parameters beta, instead for u_variety we see some low values (for u_env just in 2 cases), and this could indicate autocorrelation, even if they still have also good values registered.
+
+Now, let's look at the posterior distribution. They are shown in Figures 24 for beta, 25 for u_env 26 for u_variety. 
+```{r distro beta Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="Posterior Distributions beta, Second model."}
+#Posterior samples
+mcmc.jags2 <- as.mcmc(jags.2)
+mcmc_areas(mcmc.jags2, pars = c("beta[1,1]", "beta[1,2]", "beta[1,3]",
+                                "beta[1,4]", "beta[2,1]", "beta[2,2]",
+                                "beta[2,3]", "beta[2,4]", "beta[3,1]", 
+                                "beta[3,2]", "beta[3,3]", "beta[3,4]",
+                                "beta[4,1]", "beta[4,2]", "beta[4,3]",
+                                "beta[4,4]"))
+```
+
+```{r distro u_env Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="Posterior Distributions u\\_env, Second model."}
+#Posterior samples
+mcmc.jags2 <- as.mcmc(jags.2)
+mcmc_areas(mcmc.jags2, pars = c("u_env[1,1]", "u_env[1,2]", 
+                                "u_env[2,1]", "u_env[2,2]"))
+```
+
+```{r posterior u_variety Second model, echo=TRUE, fig.width = 8, fig.height = 8, fig.cap="Posterior distributions u\\_variety, Second model."}
+#Posterior samples
+mcmc.jags2 <- as.mcmc(jags.2)
+mcmc_areas(mcmc.jags2, pars = c("u_variety[1,1]", "u_variety[1,2]", 
+                                "u_variety[2,1]", "u_variety[2,2]"))
+```
+
+As we can see the distributions seem symmetric and this is a good sign of convergence, even if the distributions have high variability. Moreover, in general beta are close to 0, in particular the parameters beta[3,4], suggesting that it can be not significant. u_variety and u_env are less symmetric, but their means are far away from 0.
+
+From the results shown below, we can see that for the parameters beta we have a MC standard error between 0.09 and 0.11, so this suggests a good precision in the estimates. For u_env instead, we have a higher MC standard error but still acceptable, and for u_variety it is similar but with very high values in the second and third chains. This reflects the ESS in particular for the last parameter mentioned, that was quite low.
+
+```{r MCSE Second model, echo=TRUE}
+mcse.jags2 <- list()
+#MCSE for beta (8 parameters for 4 classes)
+mcse.jags2$beta <- lapply(1:3, function(mc) {
+  sapply(1:4, function(class) {
+    sapply(1:8, function(coef) {
+      #Extract samples of beta for the chain mc and the category class
+      param.name <- paste0("beta[", coef, ",", class, "]")
+      MCSE(jags.2$BUGSoutput$sims.array[, mc, param.name])
+    })
+  })
+})
+
+#Results in 3 matrices (one per mc)
+mcse.jags2$beta <- lapply(mcse.jags2$beta, function(beta.mc) {
+  matrix(beta.mc, nrow = 8, ncol = 4)
+})
+
+#MCSE for u_env (2 parameters for 4 classes)
+mcse.jags2$u_env <- lapply(1:3, function(mc) {
+  sapply(1:4, function(class) {
+    sapply(1:2, function(coef) {
+      #Extract samples of u_env for the chain mc and the category class
+      param.name <- paste0("u_env[", coef, ",", class, "]")
+      MCSE(jags.2$BUGSoutput$sims.array[, mc, param.name])
+    })
+  })
+})
+
+#Results in 3 matrices (one per mc)
+mcse.jags2$u_env <- lapply(mcse.jags2$u_env, function(u_env.mc) {
+  matrix(u_env.mc, nrow = 2, ncol = 4)
+})
+
+#MCSE for u_variety (2 parameters for 4 classes)
+mcse.jags2$u_variety <- lapply(1:3, function(mc) {
+  sapply(1:4, function(class) {
+    sapply(1:2, function(coef) {
+      #Extract samples of u_variety for the chain mc and the category class
+      param.name <- paste0("u_variety[", coef, ",", class, "]")
+      MCSE(jags.2$BUGSoutput$sims.array[, mc, param.name])
+    })
+  })
+})
+
+#Results in 3 matrices (one per mc)
+mcse.jags2$u_variety <- lapply(mcse.jags2$u_variety, function(u_variety.mc) {
+  matrix(u_variety.mc, nrow = 2, ncol = 4)
+})
+
+#Show results
+mcse.jags2
+```
+
+From these results in general we can see that many parameters have Z-score close to 0, and this suggests that there are not significant differences between sample means in the first and last part of the chain. Just in the second [[2]] chain there are a couple of them with $|Z > 2|$, for example beta[3,3], beta[7,1] or u_env in the third chain that gave very bad outputs.
+
+```{r Geweke diagnostic Second model, echo=TRUE}
+mcmc2.final <- mcmc.list(mcmc.jags2)
+#Geweke diagnostic
+(geweke.diag.jags2 <- geweke.diag(mcmc2.final))
+```
+
+We take in consideration only the Stationarity tests. As we can see, all parameters passed the stationarity test.
+
+```{r Heidelberger-Welch diagnostic Second model, echo=TRUE}
+#Heidelberger-Welch diagnostic
+(heidel.diag.jags2 <- heidel.diag(mcmc2.final))
+```
+
+# 5. Models comparison
+
+## 5.1. DIC
+
+To compare models it is usually used the **Deviance Information Criterion (DIC)** , that is a generalization of the frequentist criterion AIC. It is defined as: 
+\[
+DIC = D_{\hat\theta}(y)+2p_D = \hat D_{avg}(y)+p_D = 2\hat D_{avg}(y)-D_{\hat\theta}(y)
+\] 
+where $p_D$ is the effective number of parameters in a Bayesian
+model, and the estimated posterior mean deviance $\hat D_{avg}(y)$ can
+be approximate as 
+\[
+\hat D_{avg}(y) \approx \frac{1}{M} \sum_j - 2log(f(y | \theta^{(j)})).
+\] 
+The model with the lower value of DIC is preferred. Since this criteria does not have an absolute scale, it is used just to categorize the models. In our case we have the following results:
+
+```{r DIC, echo=FALSE}
+c("DIC First model" = jags.1$BUGSoutput$DIC,
+"DIC Second model" = jags.2$BUGSoutput$DIC)
+```
+As we can see the DIC assigns a lower value to the second model. So, based on this criteria, the best model seems to be the second one.
+
+# 6. Frequentist analysis and comparison
+
+Let's see now two frequentist alternative models. 
+
+For the first Bayesian model, the direct alternative is the Multinomial model through the library nnet. From this model we can see that even if four predictors were removed and the variables were standardized, the standard errors are still high. Moreover, the log-odds represented by coefficients' estimates are calculated compared to the first category, i.e. the category of reference. In particular we can see that for the variables ACHP, PHR and ALAP, the log odds to belong to class 2, 3 and 4 corresponds in an increasing way, to the rise of them. Contrary is for ANPL where a decrease of it causes lower log odds of belonging to class 3, 4 and 2 (in this sequential order). For PDMVG similar situation like ANPL, but in this class order: class 2, 4 and 3. \newline
+Beside this analysis, we can see that, from a statistical point of view, the residual deviance of the model is 0.00013 and this suggests a very good adaptation of the model to data.
+
+```{r Multinomial frequentist model, echo=TRUE}
+data.freq1 <- data.frame(
+  y = data.sampled$Class,
+  ACHP = sampled_standardized_predictors$`Average of chlorophyll in the plant (ACHP)`,
+  PHR = sampled_standardized_predictors$`Plant height  rate (PHR)`, 
+  ALAP = sampled_standardized_predictors$`Average leaf area of the plant (ALAP)`, 
+  ANPL = sampled_standardized_predictors$`Average number of plant leaves (ANPL)`,
+  PDMVG = sampled_standardized_predictors$`Percentage of dry matter for vegetative growth (PDMVG)`,
+  ARL = sampled_standardized_predictors$`Average root length (ARL)`, 
+  AWWR = sampled_standardized_predictors$`Average wet weight of the root (AWWR)`, 
+  PDMRG = sampled_standardized_predictors$`Percentage of dry matter for root growth (PDMRG)`
+)
+
+#Model
+model.multinom <- multinom(y ~ ACHP + PHR + ALAP + ANPL + PDMVG + ARL + AWWR + PDMRG, data = data.freq1)
+
+#Summary
+summary(model.multinom)
+```
+For the second Bayesian model we try to reproduce a the hierarchical effect using hot-encoding of the variables Env and Variety, i.e. transforming them in dummies.
+In this case of course, we ignore the variability within these two levels. The coefficients are always interpretable as in the first frequentist model, but we still have high standard errors that suggest an uncertainty of the estimates. Finally, the residual deviance is 0.00019 and it is really low as in the previous model.
+
+```{r Multilevel frequentist model, echo=TRUE}
+data.freq2 <- data.frame(
+  y = data.sampled$Class,
+  ACHP = sampled_standardized_predictors$`Average of chlorophyll in the plant (ACHP)`,
+  PHR = sampled_standardized_predictors$`Plant height  rate (PHR)`, 
+  ALAP = sampled_standardized_predictors$`Average leaf area of the plant (ALAP)`, 
+  ANPL = sampled_standardized_predictors$`Average number of plant leaves (ANPL)`,
+  PDMVG = sampled_standardized_predictors$`Percentage of dry matter for vegetative growth (PDMVG)`,
+  ARL = sampled_standardized_predictors$`Average root length (ARL)`, 
+  AWWR = sampled_standardized_predictors$`Average wet weight of the root (AWWR)`, 
+  PDMRG = sampled_standardized_predictors$`Percentage of dry matter for root growth (PDMRG)`,
+  Env = data.sampled$Env,
+  Variety = data.sampled$Variety
+)
+
+dummies <- model.matrix(~ Env + Variety, data = data.freq2)[, -1]
+data.freq2 <- cbind(data.freq2, dummies)
+#Removing columns Env and Variety
+data.freq2 <- data.freq2[, !(names(data.freq2) %in% c("Env", "Variety"))]
+
+#Model
+model.multilev <- multinom(y ~ ACHP + PHR + ALAP + ANPL + PDMVG + ARL + AWWR + PDMRG + dummies, data = data.freq2)
+
+#Summary
+summary(model.multilev)
+```
+
+In the frequentist analysis, as mentioned in section 5.1., the criterion
+used to compare models is the **Akaike Information Criterion (AIC)**. It is defined as: 
+\[
+AIC = D_{\hat \theta}(y) + 2p
+\] 
+where $p$ are the parameters of the model and $D_{\hat \theta}(y)$ is the deviance evaluated at a representative point $\hat \theta$ (usually the posterior mean). \newline 
+More deeply, the deviance is defined as $D(y,\theta) = -2logf(y|\theta)$, and $D_{\hat \theta}(y) = D(y,\hat \theta(y)).$
+In our case we have the following results:
+
+```{r AIC, echo=FALSE}
+c("AIC First model" = AIC(model.multinom),
+"AIC Second model" = AIC(model.multilev))
+```
+
+The AIC is lower for the first frequentist model, in fact also the residual deviance was smaller. Hence, for the frequentist analysis is preferable the first one.
+
+# Conclusions
+
+For the Bayesian analysis we have seen that the best model seems to be the Multilevel model with Hierarchical Random Terms. The DIC is really good, but the standard deviation and the MCSE of u_env and u_variety don't perform well. In particular, through the traceplots, we could see that the variance of the environment t_env doesn't capture so much the differences between Smart and Traditional greenhouse. Instead, t_variety seems to capture more variability. This can suggest us that, to capture the differences between environments, we should train the model with more data, considering also the variety C for example. Another alternative is also to explore other models or modify the values of parameters' distribution in the one used in this present project.
+Hence, it highlights some problems, and it should be deepened.
+
+For the frequentist analysis the preferable model resulted to be the first one, even if there was not so much difference between both. What we can see the model with dummies variable adds complexity and creates a potential overfitting even if it can represents a good adaptability to the data.
+
+\newpage
+# Appendix
+```{r correlation matrix values, echo=FALSE, fig.cap="Distributions of predictors."}
+cc <- predictors
+names(cc) <- c("ACHP", "PHR", "AWWGV", "ALAP", "ANPL", "ARD",
+                "ADWR", "PDMVG", "ARL", "AWWR", "ADWV", "PDMRG")
+(cor.matrix.app <- cor(cc, use = "complete.obs"))
+```
+
+\newpage
+# References
+
+[@nationaluniversity2024multinomial]
+[@ntzoufras2009bayesian]
+[@agresti2015categorical]
+[@tardella2023]
+[@jags_tutorial]
+
+\nocite{*}

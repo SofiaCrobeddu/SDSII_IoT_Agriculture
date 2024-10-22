@@ -1,0 +1,47 @@
+model {
+  for (i in 1:N) {
+    y[i] ~ dcat(pi[i, 1:K])
+    
+    #Likelihood
+    for (k in 1:K) {
+      eta[i, k] <- beta[1, k] * ACHP[i] +
+                   beta[2, k] * PHR[i] +                   
+                   beta[3, k] * ALAP[i] +
+                   beta[4, k] * ANPL[i] +
+                   beta[5, k] * PDMVG[i] +
+                   beta[6, k] * ARL[i] +
+                   beta[7, k] * AWWR[i] +
+                   beta[8, k] * PDMRG[i] +
+                   u_env[environment[i], k]  #Random effect for environment
+                  + u_variety[variety[i], k]  #Random effect for variety
+      expeta[i, k] <- exp(eta[i, k])
+    }
+    
+    for (k in 1:K) {
+      pi[i, k] <- expeta[i, k] / sum(expeta[i, ])
+    }
+  }
+  
+  #Priors (beta for each predictor p and class k)
+  for (p in 1:8) {  #8 predictors
+    for (k in 1:K) {
+      beta[p, k] ~ dnorm(0, 0.1) 
+    }
+  }
+  
+  #Random effect for environment
+  for (j in 1:2) {  #2 environments: S=1, T=0
+    for (k in 1:K) {
+      u_env[j, k] ~ dnorm(0, tau_env)
+    }
+  }
+  tau_env ~ dgamma(0.1, 0.1)
+  
+  #Random effect for variety
+  for (j in 1:2) {  #2 varieties: A, B
+    for (k in 1:K) {
+      u_variety[j, k] ~ dnorm(0, tau_variety)
+    }
+  }
+  tau_variety ~ dgamma(0.1, 0.1)
+}

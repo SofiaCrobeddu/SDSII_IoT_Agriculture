@@ -1,0 +1,34 @@
+model {
+  #Likelihood
+  for (i in 1:N) {
+    y[i] ~ dcat(pi[i, 1:K])
+        
+    for (k in 1:K) {
+      eta[i, k] <- beta0[k] +
+                   beta[1, k] * ACHP[i] +
+                   beta[2, k] * PHR[i] +
+                   beta[3, k] * ALAP[i] +
+                   beta[4, k] * ANPL[i] +
+                   beta[5, k] * PDMVG[i] +
+                   beta[6, k] * ARL[i] +
+                   beta[7, k] * AWWR[i] +
+                   beta[8, k] * PDMRG[i]
+      
+      expeta[i, k] <- exp(eta[i, k])
+    }
+    
+    for (k in 1:K) {
+      pi[i, k] <- expeta[i, k] / sum(expeta[i, ])
+    }
+  }
+
+  #Priors
+  for (k in 1:K){
+    beta0[k] ~ dnorm(0, 0.1)
+
+    #Predictors
+    for (j in 1:8){ 
+      beta[j, k] ~ dnorm(0, 0.1)
+    }
+  }
+}
