@@ -19,5 +19,6 @@ The repositories are:
   - `project_report[1].Rmd`: it is the final report in Rmarkdown format, with all the analyses, graphs, interpretations and results.
   - `mod_agr.txt`: text file of the first JAGS model applied to data, the Multinomial logistic regression model.
   - `model_jags.txt`: text file of the second JAGS model applied to data, the Multilevel model with Hierarchical Random Terms.
+Other files:
 - `project_report[1].html`: it is the final report in html format.
 - `project_report[1].pdf`: it is the final report in pdf format.
